@@ -1,0 +1,704 @@
+package com.android.xiong.mediarecordertest;
+
+import com.staticmessage.data.StaticByteMessageData;
+import com.staticmessage.data.StaticByteMessageData2;
+import com.staticmessage.data.StaticByteReverseData;
+import com.staticmessage.data.StaticByteReverseData2;
+
+import android.annotation.SuppressLint;
+import android.app.Notification;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.database.sqlite.SQLiteDatabase;
+import android.graphics.PixelFormat;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioRecord;
+import android.media.AudioTrack;
+import android.media.MediaRecorder;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Message;
+import android.util.Log;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.view.View.OnTouchListener;
+import android.widget.Button;
+import android.widget.Toast;
+
+public class MainActivityService extends Service {
+
+	public boolean insert_detect_Data_flag = false;// 设备检测
+	public boolean responses_detect_Data_flag = false;// 设备确认
+	private boolean insert_detect_sleep = true;// 检测指令发送后是否播放充电波形
+	public static boolean headset_flag = false;
+	
+	public MainActivityService() {
+		// TODO Auto-generated constructor stub
+	}
+	/**
+	 * 耳机连接或断开广播接收
+	 */
+	public BroadcastReceiver HeadsetPlugReceiver = new BroadcastReceiver() {
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			final String action = intent.getAction();
+			if(HEADSET_PLUG.equals(action)){
+				if (intent.hasExtra("state")) {
+					if (intent.getIntExtra("state", 0) == 0) {
+						if (headset_flag) {
+							headset_flag = false;
+							if (PlayAudioThread != null && audioRecord != null) {
+								insert_detect_success_flag = false;
+								mThreadExitFlag = true;
+								isAdded = false;
+								am.setStreamVolume(AudioTrack_Manager, audioCurrentVolumn,
+										AudioManager.FLAG_PLAY_SOUND);
+								wm.removeView(btn_floatView);
+								Log.d("指环断开连接>> = true", ">>>>>>>>>");
+								ACTION_STATE_DATA_Parms = 0;
+//								sendBroadCast(ACTION_STATE_DATA, ACTION_STATE_DATA_Parms);
+							}
+						}
+					} else if (intent.getIntExtra("state", 0) == 1) {
+						headset_flag = true;
+						ACTION_STATE_DATA_Parms = 1;
+//						sendBroadCast(ACTION_STATE_DATA, ACTION_STATE_DATA_Parms);
+						Log.d("指环连接>> = true", ">>>>>>>>>");
+						createFloatView();
+						start_audio_track();
+					}
+				}
+			}else if(ACTION_SOUND_CHECK.equals(action)){
+				//左右声道检测
+				MIC_SOUND_CHECK();
+			}else if(ACTION_MIC_CHECK.equals(action)){
+				//MIC检测
+				MIC_SOUND_CHECK();
+			}else if(ACTION_TRACK_CHANGE.equals(action)){
+				//音频通道检测
+				track_change();
+			}else if(ACTION_DESTROY_A.equals(action)){
+				//销毁Service
+				if(!mThreadExitFlag)
+				mThreadExitFlag = true;
+				if(isAdded){
+					isAdded = false;
+					wm.removeView(btn_floatView);
+					unregisterReceiver(HeadsetPlugReceiver);
+				}
+				stopSelf();
+			}
+		}
+	};
+	
+	public void start_audio_track(){
+		start_play();
+		startRecord();
+		Toast.makeText(MainActivityService.this, "W200已连接", Toast.LENGTH_LONG)
+				.show();
+		try {
+			// 系统播放器启动时音量会从小到大有一个渐变过程，而检测指令需要音量足够大才可以发送成功，
+			// 因此这里添加500ms的前导音频。播完前导音频后音量就足够大，满足检测指令成功发出条件。
+			Thread.sleep(500);
+			insert_detect_Data_flag = true;
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	public static String ACTION_MIC_SOUND_CHECK = "com.android.xiong.mediarecordertest.MainActivityService.MIC_SOUND_CHECK";//MIC和声道检测结果
+	public static String HEADSET_PLUG = "android.intent.action.HEADSET_PLUG";
+	//注册广播
+	private void registerHeadsetPlugReceiver() {
+		IntentFilter intentFilter = new IntentFilter();
+		intentFilter.addAction(HEADSET_PLUG);
+		intentFilter.addAction(ACTION_SOUND_CHECK);
+		intentFilter.addAction(ACTION_MIC_CHECK);
+		intentFilter.addAction(ACTION_TRACK_CHANGE);
+		intentFilter.addAction(ACTION_DESTROY_A);
+		registerReceiver(HeadsetPlugReceiver, intentFilter);
+	}
+	
+	@Override
+	public IBinder onBind(Intent intent) {
+		return null;
+	}
+
+	AudioManager am;
+	int audioMaxVolumn;// 最大音量
+	int audioCurrentVolumn;// 当前音量
+	private SQLiteDatabase database;
+	private MySqlite mySqlite;
+	
+	public void onCreate() {
+		//提升Service的优先级
+		Notification notification = new Notification(R.drawable.ic_launcher,
+				"启动服务发出通知", System.currentTimeMillis());
+		// 设置内容和点击事件
+		Intent intent1 = new Intent(this, MainActivity.class);
+		PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
+				intent1, 0);
+		notification.setLatestEventInfo(this, "优先级通知", "提高优先级",  contentIntent);
+		notification.flags = Notification.FLAG_AUTO_CANCEL; // 设置为点击后自动取消
+		startForeground(1235, notification);
+		
+		registerHeadsetPlugReceiver();
+		am = (AudioManager) this.getSystemService(this.AUDIO_SERVICE);
+		audioMaxVolumn = am.getStreamMaxVolume(AudioTrack_Manager);
+		audioCurrentVolumn = am.getStreamVolume(AudioTrack_Manager);
+		
+		Log.d("当前音量", audioMaxVolumn + "," + audioCurrentVolumn);
+		am.setMode(AudioTrack_Manager);
+		
+		mySqlite = new MySqlite(this);
+
+		database = mySqlite.getWritableDatabase();
+		saveShardMessage = new SaveShardMessage(database, this);
+		SaveShardMessage.getChange_track_flag(this);
+		SaveShardMessage.getMotion_volume(this);
+		SaveShardMessage.getReversePolarity(this);
+		Log.d("启动service","极性：" + ",音量:"+ ",声道:" );
+	};
+	
+	/**
+	 * 获取mic录音数据同步解析；
+	 */
+	int s;
+	/**
+	 * 发送广播
+	 */
+	public static String ACTION_NUMBER_DATA = "com.android.xiong.mediarecordertest.MainActivityService.NUMBER";//条码
+	public static String ACTION_STATE_DATA = "com.android.xiong.mediarecordertest.MainActivityService.STATE";//W200状态
+	public static String ACTION_BATTERY_DATA = "com.android.xiong.mediarecordertest.MainActivityService.BATTERY";//电量
+	public static String ACTION_DESTROY = "com.android.xiong.mediarecordertest.MainActivityService.DESTORY";//销毁服务
+	public static String ACTION_AudioTrack_Manager = "com.android.xiong.mediarecordertest.MainActivityService.ACTION_AudioTrack_Manager";
+	/**
+	 * 接收广播
+	 */
+	public static String ACTION_SOUND_CHECK = "com.haochuang.bluetooth.DeviceControlActivity.SOUND_CHECK";//左右声道检测
+	public static String ACTION_MIC_CHECK = "com.haochuang.bluetooth.DeviceControlActivity.MIC_CHECK";//MIC检测
+	public static String ACTION_TRACK_CHANGE = "com.haochuang.bluetooth.DeviceControlActivity.TRACK_CHANGE";//音频通道切换
+	public static String ACTION_DESTROY_A = "com.haochuang.bluetooth.DeviceControlActivity.DESTORY";
+	public static String EXTRA_DATA = "com.android.xiong.mediarecordertest.MainActivityService.NAME";
+	private int AudioTrack_Manager = AudioManager.STREAM_SYSTEM;
+	AudioTrack trackplayer;
+	public static boolean mThreadExitFlag = false; // 线程退出标志f
+	private Thread PlayAudioThread = null;// 播放音频线程
+	private boolean start_play_audio;
+	
+	/**
+	 * 录音数据解析结果
+	 */
+	public void sendData(byte[] data) {
+		final StringBuilder stringBuilder = new StringBuilder();
+		if (data != null && data.length > 0) {
+			for (byte byteChar : data)
+				stringBuilder.append(String.format("%02X ", byteChar));// 表示以十六进制形式输出,02表示不足两位，前面补0输出；出过两位，不影响
+			if (stringBuilder.toString().contains("53 01 ")
+					&& stringBuilder.toString().startsWith("40")
+					&& stringBuilder.toString().endsWith("2A ")) {
+				if (Util.checkCurrentNumber(stringBuilder.toString())) {
+					String ss = Util.getCurrentNumberString(stringBuilder
+							.toString());
+					stringBuilder.delete(0, stringBuilder.length());
+					insert_detect_success_flag = true;
+					button_background = true;
+					if(ss.length() > 2){
+						sendBroadCast(ACTION_NUMBER_DATA,ss);
+						handler.sendEmptyMessage(0x001);
+					}
+				}
+			} else if (stringBuilder.toString().startsWith("40 03 52 0D")) {
+				String ss = Util.getPowerNumberString(stringBuilder.toString());
+				stringBuilder.delete(0, stringBuilder.length());
+				int prams = Integer.parseInt(ss.substring(1, 2));
+				sendBroadCast(ACTION_BATTERY_DATA,prams);
+			} else if (stringBuilder.toString().startsWith("40 02 52 A0 F4 2A")) {
+				responses_detect_Data_flag = true;
+				insert_detect_success_flag = true;
+				ACTION_STATE_DATA_Parms = 2;
+				if (adaptation_flag)
+					reversePolarity = 0;
+				Log.d("YYYYYYYYYYY", "检测到W200");
+				sendBroadCast(ACTION_STATE_DATA, 2);
+				stringBuilder.delete(0, stringBuilder.length());
+			} else if (stringBuilder.toString().startsWith("BF FD AD 5F 0B D5")) {
+				responses_detect_Data_flag = true;
+				insert_detect_success_flag = true;
+				ACTION_STATE_DATA_Parms = 2;
+				if (adaptation_flag)
+					reversePolarity = 1;
+				sendBroadCast(ACTION_STATE_DATA, 2);
+				Log.d("反向检测到为W200", "检测到W200");
+				stringBuilder.delete(0, stringBuilder.length());
+			}
+		}
+	}
+	public void sendBroadCast(String ACTION,int prams){
+		Intent STATE_intent = new Intent(ACTION);
+		STATE_intent.putExtra(EXTRA_DATA,prams);
+		sendBroadcast(STATE_intent);
+	}
+	
+	public void sendBroadCast(String ACTION,String prams){
+		Intent STATE_intent = new Intent(ACTION);
+		STATE_intent.putExtra(EXTRA_DATA,prams);
+		sendBroadcast(STATE_intent);
+	}
+
+	/**
+	 * 启动录音
+	 */
+	private void startRecord() {
+		createAudioRecord();
+		MyNative.audioInterface(44100, 0,0);
+		audioRecord.startRecording();
+		isRecording = true;
+		recordingThread = new Thread(new Runnable() {
+			public void run() {
+				writeAudioDataToFile();
+			}
+		}, "AudioRecorder Thread");
+		recordingThread.start();
+	}
+	
+	public void createAudioRecord() {
+		recBufSize = AudioRecord.getMinBufferSize(frequency,
+				channelConfiguration, EncodingBitRate);
+		audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, frequency,
+				channelConfiguration, EncodingBitRate, recBufSize);
+		System.out.println("AudioRecord成功");
+	}
+	/**
+	 * 录音数据解析
+	 */
+	private void writeAudioDataToFile() {
+		byte data[] = new byte[recBufSize];
+		int read = 0;
+		if (SaveShardMessage.reversePolarity <= 0) {
+			MyNative.audioInterface(44100, 0, 0);
+			Log.d("启动录音0000",
+					reversePolarity
+							+ "<<"
+							+ SaveShardMessage.reversePolarity);
+		} else {
+			MyNative.audioInterface(44100, 0,
+					SaveShardMessage.reversePolarity);
+			Log.d("启动录音1111",
+					reversePolarity
+							+ "<<"
+							+ SaveShardMessage.reversePolarity);
+		}
+		while (isRecording) {
+			read = audioRecord.read(data, 0, recBufSize);
+			if (AudioRecord.ERROR_INVALID_OPERATION != read) {
+				simple_c2java(data);
+			}
+		}
+	}
+	/**
+	 * 波形数据解析
+	 * @param byte_source
+	 */
+	public void simple_c2java(byte[] byte_source) {
+		code_data = new byte[320];
+		byte[] byte_int = new byte[200];
+
+		for (int n = 0; n < byte_source.length; n += 200) {
+			if ((byte_source.length - n) < 200) {
+				System.arraycopy(byte_source, n, byte_int, 0,
+						byte_source.length - n);
+				s = MyNative.cToJava(byte_int, byte_source.length - n,
+						code_data);
+			} else {
+				System.arraycopy(byte_source, n, byte_int, 0, 200);
+				s = MyNative.cToJava(byte_int, 200, code_data);
+			}
+			if (s > 0) {
+				byte[] send_data = new byte[s - 1];
+				System.arraycopy(code_data, 0, send_data, 0, s - 1);
+				sendData(send_data);
+				break;
+			}
+		}
+	}
+	public int ACTION_STATE_DATA_Parms = -1;
+	private static int frequency = 44100;
+	private static int channelConfiguration = AudioFormat.CHANNEL_IN_MONO;// 单声道
+	private static int EncodingBitRate = AudioFormat.ENCODING_PCM_16BIT; // 音频数据格式：脉冲编码调制（PCM）每个样品16位
+	private AudioRecord audioRecord = null;
+	private int recBufSize = 0;
+	private Thread recordingThread = null;
+	private boolean isRecording = false;
+	public int reversePolarity = -1;
+	byte[] code_data;
+	private boolean adaptation_flag = false;
+	private boolean button_background = false;
+	@SuppressLint("HandlerLeak")
+	Handler handler = new Handler() {
+		public void handleMessage(Message msg) {
+			if (msg.what == 0x001) {
+				 btn_floatView.setBackgroundResource(R.drawable.button_scan);
+			}else if(msg.what == 0x002){
+				//检测指令发出后500ms后是否收到回应
+				if(!insert_detect_success_flag){
+					insert_detect_sleep = false;
+					insert_detect_success_flag = false;
+					ACTION_STATE_DATA_Parms = 3;
+				}
+				Log.d("handler++++++++", ACTION_STATE_DATA_Parms + "////");
+				sendBroadCast(ACTION_STATE_DATA, ACTION_STATE_DATA_Parms);
+			}else if(msg.what == 0x003){
+				//扫描按钮背景
+				if(!button_background)
+					btn_floatView.setBackgroundResource(R.drawable.button_scan);
+				button_background = false;
+			}
+		};
+	};
+	
+	/**
+	 * 播放器
+	 */
+	@SuppressWarnings("deprecation")
+	public void start_play() {
+		// 根据采样率，采样精度，单双声道来得到frame的大小。
+		int bufsize = AudioTrack.getMinBufferSize(48000,//
+				AudioFormat.CHANNEL_CONFIGURATION_STEREO,// 双声道
+				AudioFormat.ENCODING_PCM_16BIT);// 一个采样点16比特-2个字节
+	
+		// 注意，按照数字音频的知识，这个算出来的是一秒钟buffer的大小。
+		// 创建AudioTrack
+		am.setStreamVolume(AudioTrack_Manager,
+				audioMaxVolumn * 4 / 5,
+				AudioManager.FLAG_PLAY_SOUND);
+		trackplayer = new AudioTrack(AudioTrack_Manager, 48000,
+				AudioFormat.CHANNEL_CONFIGURATION_STEREO,
+				AudioFormat.ENCODING_PCM_16BIT, bufsize, AudioTrack.MODE_STREAM);//
+
+		mThreadExitFlag = false;
+		trackplayer.play();
+		PlayAudioThread = new Thread(new Runnable() {
+			public void run() {
+				start_scan();
+			}
+		});
+		PlayAudioThread.start();
+	}
+	
+	public static boolean flag_read_number = false;// 插入播放扫描指令音频byte[]
+	byte[] byte_damo;// 循环播放的数据
+	public boolean insert_detect_success_flag = false;
+	byte[] byte_test = new byte[2000];
+	/**
+	 * 播放指令数据
+	 */
+	public void start_scan() {
+		start_play_audio = true;
+		while (start_play_audio) {
+			if (mThreadExitFlag) {
+				stopRecord();
+				stopPlayAudio();
+				break;
+			} else {
+				// java.lang.IllegalStateException: play() called on
+				// uninitialized AudioTrack.
+				if (SaveShardMessage.change_track_flag){
+					if (flag_read_number) {
+						byte_damo = StaticByteMessageData.scan_byte;
+						flag_read_number = false;
+						remove_buttery();
+						My_thread_sleep(3000, 0x003);
+						Log.d("扫描指令>> = true", ">>>>>>>>>");
+					} else if (insert_detect_Data_flag) {
+						byte_damo = StaticByteMessageData2.insert_detect_byte;
+						remove_buttery();
+						Log.d("检测指令 = true", ">>>>>>>>>");
+						My_thread_sleep(500, 0x002);
+					} else if (responses_detect_Data_flag) {
+						byte_damo = StaticByteMessageData2.responses_detect_byte;
+						responses_detect_Data_flag = false;
+						Log.d("设备确认指令 = true", ">>>>>>>>>");
+					} else {
+						//充电指令
+						charge_buttery();
+					}
+				} else {
+					if (flag_read_number) {
+						byte_damo = StaticByteReverseData.scan_reverse_byte;
+						flag_read_number = false;
+						remove_buttery();
+						My_thread_sleep(3000, 0x003);
+						Log.d("R扫描指令 = true", ">>>>>>>>>");
+					} else if (insert_detect_Data_flag) {
+						byte_damo = StaticByteReverseData2.insert_reverse_byte;
+						remove_buttery();
+						Log.d("R检测指令 = true", ">>>>>>>>>");
+						My_thread_sleep(500, 0x002);
+					} else if (responses_detect_Data_flag) {
+						byte_damo = StaticByteReverseData2.responses_reverse_byte;
+						responses_detect_Data_flag = false;
+						Log.d("R设备确认指令", ">>>>>>>>>");
+					} else {
+						charge_buttery();
+					}
+				}
+
+				try {
+					trackplayer.write(byte_damo, 0, byte_damo.length);// 往track中写数据
+				} catch (Exception e) {
+					PlayAudioThread.interrupt();
+					break;
+				}
+			}
+		}
+	}
+	public void remove_buttery(){
+		//取消充电
+		insert_detect_Data_flag = false;
+		insert_detect_sleep = false;
+	}
+	/**
+	 * 充电指令
+	 */
+	public void charge_buttery(){
+		if (insert_detect_success_flag) {
+			byte_damo = StaticByteReverseData.default_reverse_byte;
+			// Log.d("R充电指令 = true", ">>>>>>>>>");
+		} else {
+			// 检测指令发送前播放充电波形，500ms后停止。
+			if (insert_detect_sleep) {
+				byte_damo = StaticByteReverseData.default_reverse_byte;
+				// Log.d("R充电指令222 = true", ">>>>>>>>>");
+			} else {
+				byte_damo = byte_test;
+				// Log.d("R取消充电 = true", ">>>>>>>>>");
+			}
+		}
+	}
+	
+	public void My_thread_sleep(final long time, final int message){
+		new Thread(new Runnable() {
+			public void run() {
+				try {
+					Thread.sleep(time);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				handler.sendEmptyMessage(message);
+			}
+		}).start();
+	}
+	/**
+	 * 切换音频通道
+	 */
+	public void track_change(){
+		mThreadExitFlag = true;
+		try {
+			Thread.sleep(200);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		if (AudioTrack_Manager == AudioManager.STREAM_SYSTEM) {
+			AudioTrack_Manager = AudioManager.STREAM_MUSIC;
+			sendBroadCast(ACTION_AudioTrack_Manager, 0);
+			Log.d("AudioTrack_Manager", "//////AudioManager.STREAM_MUSIC");
+		} else if (AudioTrack_Manager == AudioManager.STREAM_MUSIC) {
+			AudioTrack_Manager = AudioManager.STREAM_SYSTEM;
+			sendBroadCast(ACTION_AudioTrack_Manager, 1);
+			Log.d("AudioTrack_Manager", "//////AudioManager.STREAM_SYSTEM");
+		}
+		start_audio_track();
+	}
+	
+	public SaveShardMessage saveShardMessage;
+	/**
+	 * MIC和声道检测
+	 */
+	public void MIC_SOUND_CHECK(){
+		if (SaveShardMessage.getReversePolarity(this) == -1)
+			MyNative.audioInterface(44100, 0, 0);
+		for (int i = audioMaxVolumn; i > audioMaxVolumn / 2; i -= 2) {
+			am.setStreamVolume(AudioTrack_Manager, i,
+					AudioManager.FLAG_PLAY_SOUND);
+			insert_detect_Data_flag = true;
+			adaptation_flag = true;
+			Log.d("适配W200？？？？？", reversePolarity + "<<" + i);
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			if (reversePolarity >= 0) {
+				adaptation_flag = false;
+				MyNative.audioInterface(44100, 0, reversePolarity);
+				sendBroadCast(ACTION_MIC_SOUND_CHECK, 0);
+				audioCurrentVolumn = i;
+				saveShardMessage.Sharedvolume(i);
+				saveShardMessage.SharedreversePolarity(reversePolarity);
+				saveShardMessage.Sharedchange_track_flag(true);
+				break;
+			}
+		}
+		if (adaptation_flag) {
+			for (int j = audioMaxVolumn; j > audioMaxVolumn / 2; j -= 2) {
+				am.setStreamVolume(AudioTrack_Manager, j,
+						AudioManager.FLAG_PLAY_SOUND);
+				insert_detect_Data_flag = true;
+				Log.d("适配W200@@@@@", reversePolarity + "<<" + j);
+				try {
+					Thread.sleep(500);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				if (reversePolarity >= 0) {
+					adaptation_flag = false;
+					sendBroadCast(ACTION_MIC_SOUND_CHECK, 0);
+					MyNative.audioInterface(44100, 0, reversePolarity);
+					audioCurrentVolumn = j;
+					saveShardMessage.Sharedvolume(j);
+					saveShardMessage.SharedreversePolarity(reversePolarity);
+					saveShardMessage.Sharedchange_track_flag(false);
+					break;
+				}
+			}
+			if (adaptation_flag) {
+				am.setStreamVolume(AudioTrack_Manager, audioMaxVolumn,
+						AudioManager.FLAG_PLAY_SOUND);
+				saveShardMessage.Sharedchange_track_flag(true);
+				saveShardMessage
+						.SharedreversePolarity(SaveShardMessage.reversePolarity);
+				sendBroadCast(ACTION_MIC_SOUND_CHECK, 1);
+			}
+		}
+	}
+	
+	private static WindowManager wm;
+	private static WindowManager.LayoutParams params;
+	private Button btn_floatView;
+	private boolean isAdded = false; // 是否已增加悬浮窗
+	public static int window_x;//屏幕宽度
+	/**
+	 * 创建悬浮窗
+	 */
+	private void createFloatView() {
+		btn_floatView = new Button(getApplicationContext());
+        btn_floatView.setText("扫描");
+        btn_floatView.setBackgroundResource(R.drawable.button_scan);
+        
+        wm = (WindowManager) getApplicationContext()
+        	.getSystemService(Context.WINDOW_SERVICE);
+        params = new WindowManager.LayoutParams();
+        
+        // 设置window type
+        params.type = WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+        /*
+         * 如果设置为params.type = WindowManager.LayoutParams.TYPE_PHONE;
+         * 那么优先级会降低一些, 即拉下通知栏不可见
+         */
+        params.format = PixelFormat.RGBA_8888; // 设置图片格式，效果为背景透明
+        
+        // 设置Window flag
+        params.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                              | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+        /*
+         * 下面的flags属性的效果形同“锁定”。
+         * 悬浮窗不可触摸，不接受任何事件,同时不影响后面的事件响应。
+        wmParams.flags=LayoutParams.FLAG_NOT_TOUCH_MODAL
+                               | LayoutParams.FLAG_NOT_FOCUSABLE
+                               | LayoutParams.FLAG_NOT_TOUCHABLE;
+         */
+        
+        // 设置悬浮窗的长、宽
+        params.width = window_x / 5;
+        params.height = window_x / 5;
+        params.gravity=Gravity.LEFT;
+        params.x=200;
+        params.y=000;
+        // 设置悬浮窗的Touch监听
+        btn_floatView.setOnTouchListener(new OnTouchListener() {
+        	int lastX, lastY, currentX, currentY, startX, startY;;
+        	int paramX, paramY;
+        	
+			public boolean onTouch(View v, MotionEvent event) {
+				switch(event.getAction()) {
+				case MotionEvent.ACTION_DOWN:
+					startX = lastX = (int) event.getRawX();
+					startY = lastY = (int) event.getRawY();
+					paramX = params.x;
+					paramY = params.y;
+					 btn_floatView.setBackgroundResource(R.drawable.button_scan111);
+					break;
+				case MotionEvent.ACTION_MOVE:
+					int dx = (int) event.getRawX() - lastX;
+					int dy = (int) event.getRawY() - lastY;
+					params.x = paramX + dx;
+					params.y = paramY + dy;
+					// 更新悬浮窗位置
+			        wm.updateViewLayout(btn_floatView, params);
+					break;
+				case MotionEvent.ACTION_UP:
+					currentX = (int) event.getRawX();// 获取触摸事件触摸位置的原始X坐标
+					currentY = (int) event.getRawY();
+					if (!(getMoveX_Y(currentX, startX) > 100
+							|| getMoveX_Y(currentY, startY) > 100))
+						flag_read_number = true;
+					else  btn_floatView.setBackgroundResource(R.drawable.button_scan);
+				}
+				return true;
+			}
+		});
+        wm.addView(btn_floatView, params);
+        isAdded = true;
+	}
+	
+	public int getMoveX_Y(int lx, int nx) {
+		int leng_x = 0;
+		if (lx > nx)
+			leng_x = lx - nx;
+		else
+			leng_x = nx - lx;
+		return leng_x;
+	}
+	
+	private void stopPlayAudio() {
+		if (null != PlayAudioThread) {
+			start_play_audio = false;
+			trackplayer.stop();
+			trackplayer.release();
+			trackplayer = null;
+			PlayAudioThread.interrupt();
+			PlayAudioThread = null;
+		}
+	}
+
+	private void stopRecord() {
+		if (null != audioRecord) {
+			isRecording = false;
+			audioRecord.stop();
+			audioRecord.release();
+			audioRecord = null;
+			recordingThread.interrupt();
+			recordingThread = null;
+		}
+	}
+	@Override
+	public void onDestroy() {
+		super.onDestroy();
+//		onstop();
+	}
+	private void onstop() {
+		unregisterReceiver(HeadsetPlugReceiver);
+		mThreadExitFlag = true;
+		headset_flag = false;
+		isRecording = false; 
+		insert_detect_success_flag = false;
+	}
+}

@@ -1,0 +1,47 @@
+K 25
+svn:wc:ra_dav:version-url
+V 115
+/svn/Android/!svn/ver/94/MediaRecorder_%E5%90%8E%E5%8F%B0%E6%9C%8D%E5%8A%A1/src/com/android/xiong/mediarecordertest
+END
+Util.java
+K 25
+svn:wc:ra_dav:version-url
+V 125
+/svn/Android/!svn/ver/94/MediaRecorder_%E5%90%8E%E5%8F%B0%E6%9C%8D%E5%8A%A1/src/com/android/xiong/mediarecordertest/Util.java
+END
+MySqlite.java
+K 25
+svn:wc:ra_dav:version-url
+V 129
+/svn/Android/!svn/ver/94/MediaRecorder_%E5%90%8E%E5%8F%B0%E6%9C%8D%E5%8A%A1/src/com/android/xiong/mediarecordertest/MySqlite.java
+END
+PlayBeepSound.java
+K 25
+svn:wc:ra_dav:version-url
+V 134
+/svn/Android/!svn/ver/94/MediaRecorder_%E5%90%8E%E5%8F%B0%E6%9C%8D%E5%8A%A1/src/com/android/xiong/mediarecordertest/PlayBeepSound.java
+END
+MyNative.java
+K 25
+svn:wc:ra_dav:version-url
+V 129
+/svn/Android/!svn/ver/94/MediaRecorder_%E5%90%8E%E5%8F%B0%E6%9C%8D%E5%8A%A1/src/com/android/xiong/mediarecordertest/MyNative.java
+END
+SaveShardMessage.java
+K 25
+svn:wc:ra_dav:version-url
+V 137
+/svn/Android/!svn/ver/94/MediaRecorder_%E5%90%8E%E5%8F%B0%E6%9C%8D%E5%8A%A1/src/com/android/xiong/mediarecordertest/SaveShardMessage.java
+END
+MainActivity.java
+K 25
+svn:wc:ra_dav:version-url
+V 134
+/svn/Android/!svn/ver/103/MediaRecorder_%E5%90%8E%E5%8F%B0%E6%9C%8D%E5%8A%A1/src/com/android/xiong/mediarecordertest/MainActivity.java
+END
+MainActivityService.java
+K 25
+svn:wc:ra_dav:version-url
+V 141
+/svn/Android/!svn/ver/103/MediaRecorder_%E5%90%8E%E5%8F%B0%E6%9C%8D%E5%8A%A1/src/com/android/xiong/mediarecordertest/MainActivityService.java
+END

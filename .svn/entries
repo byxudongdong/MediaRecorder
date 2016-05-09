@@ -1,0 +1,140 @@
+8
+
+dir
+93
+https://192.168.0.145/svn/Android/MediaRecorder_%E5%90%8E%E5%8F%B0%E6%9C%8D%E5%8A%A1
+https://192.168.0.145/svn/Android
+
+
+
+2016-04-14T06:59:02.214231Z
+93
+li
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+c6cf25a5-7616-9a4f-a3fd-f7b562809941
+
+.classpath
+file
+94
+
+
+
+2016-02-24T10:25:12.607000Z
+325a7c6ac16e1ed73a2f16f19b367319
+2016-04-14T06:59:21.137065Z
+94
+li
+
+.cproject
+file
+94
+
+
+
+2016-04-11T10:39:47.701000Z
+0c62ec5df98be2b8bb89da93d351c5f9
+2016-04-14T06:59:21.137065Z
+94
+li
+
+.project
+file
+94
+
+
+
+2016-04-11T10:39:47.386000Z
+5a265765548da4965d23a8e42b0748e4
+2016-04-14T06:59:21.137065Z
+94
+li
+
+.settings
+dir
+
+AndroidManifest.xml
+file
+97
+
+
+
+2016-04-14T08:31:42.376000Z
+57c8df9d6a80eca63eb641cedfa86c91
+2016-04-15T03:31:51.789130Z
+97
+li
+
+assets
+dir
+
+bin
+dir
+
+gen
+dir
+
+ic_launcher-web.png
+file
+94
+
+
+
+2014-01-15T05:47:33.514000Z
+03162f4ee138bcbae36f78b1d25dbd5b
+2016-04-14T06:59:21.137065Z
+94
+li
+has-props
+
+jni
+dir
+
+libs
+dir
+
+obj
+dir
+
+proguard-project.txt
+file
+94
+
+
+
+2014-01-15T05:47:31.656000Z
+18bfe77c342b4698f1cef19cf8d918e2
+2016-04-14T06:59:21.137065Z
+94
+li
+
+project.properties
+file
+94
+
+
+
+2016-04-01T02:17:37.562000Z
+6370367d557b4cc1bcb4c1857bca3d2d
+2016-04-14T06:59:21.137065Z
+94
+li
+
+res
+dir
+
+src
+dir
+

@@ -1,0 +1,106 @@
+package com.android.xiong.mediarecordertest;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.res.AssetFileDescriptor;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.media.MediaPlayer.OnCompletionListener;
+import android.os.Vibrator;
+
+
+import java.io.IOException;
+
+public class PlayBeepSound {
+
+	public Context context;
+	public PlayBeepSound() {
+		// TODO Auto-generated constructor stub
+	}
+
+	public PlayBeepSound(Context context) {
+		super();
+		this.context = context;
+		init_beep_sound();
+	}
+
+	// 初始化声音和震动
+	public void init_beep_sound() {
+		AudioManager audioService = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+		// 如果手机是震动模式就震动
+		if (audioService.getRingerMode() != AudioManager.RINGER_MODE_NORMAL) {
+			playBeep = false;
+		}
+		// 初始化声音
+		// 初始化声音
+		initBeepSound(mediaPlayer,true);
+		initBeepSound(mediaPlayer2,false);
+	}
+
+	private MediaPlayer mediaPlayer = new MediaPlayer();
+	private MediaPlayer mediaPlayer2 = new MediaPlayer();
+	private boolean playBeep = true;
+
+	private static final float BEEP_VOLUME = 0.10f;
+	private static final long VIBRATE_DURATION = 200L;
+
+	/**
+	 * 初始化声音
+	 */
+	private void initBeepSound(MediaPlayer mediaPlayer,boolean play_state) {
+		if (playBeep && mediaPlayer != null) {
+			setVolumeControlStream(AudioManager.STREAM_MUSIC);
+			mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+			mediaPlayer.setOnCompletionListener(beepListener);
+			AssetFileDescriptor file = null;
+			if(play_state){
+				 file = context.getResources().openRawResourceFd(
+							R.raw.test_4k_8820_200ms);
+			}else{
+				 file = context.getResources().openRawResourceFd(
+							R.raw.test_2k_8820_200ms);
+			}
+			
+			try {
+				mediaPlayer.setDataSource(file.getFileDescriptor(),
+						file.getStartOffset(), file.getLength());
+				file.close();
+				mediaPlayer.prepare();
+			} catch (IOException e) {
+				mediaPlayer = null;
+			}
+		}
+	}
+
+	/**
+	 * 播放声音和震动
+	 */
+	public void playBeepSoundAndVibrate(boolean flag_copy) {
+		if (playBeep) {
+			if(flag_copy && mediaPlayer != null){
+				mediaPlayer.start();
+			}else if(mediaPlayer2 != null){
+				mediaPlayer2.start();
+			}
+			// 打开震动
+			Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+			vibrator.vibrate(VIBRATE_DURATION);
+			
+		} else {
+			// 打开震动
+			Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+			vibrator.vibrate(VIBRATE_DURATION);
+		}
+	}
+
+	private void setVolumeControlStream(int streamMusic) {
+		// TODO Auto-generated method stub
+		((Activity) context).getWindow().setVolumeControlStream(streamMusic);
+	}
+
+	private final OnCompletionListener beepListener = new OnCompletionListener() {
+		public void onCompletion(MediaPlayer mediaPlayer) {
+			mediaPlayer.seekTo(0);
+		}
+	};
+}
