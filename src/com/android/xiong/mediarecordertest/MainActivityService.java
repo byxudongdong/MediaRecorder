@@ -125,7 +125,7 @@ public class MainActivityService extends Service {
 	private File saveFilePath;
 	
 	public void start_audio_track(){
-		//start_play();			//播放音乐
+		start_play();			//播放音乐
 		startRecord();  		//录音
 		Log.i("recordfile", "创建文件");
 		String text = "test001";
@@ -534,7 +534,7 @@ public class MainActivityService extends Service {
     }
 	
 	public int ACTION_STATE_DATA_Parms = -1;
-	private static int frequency = 44100;
+	private static int frequency = 8000;
 	private static int channelConfiguration = AudioFormat.CHANNEL_IN_MONO;// 单声道
 	private static int EncodingBitRate = AudioFormat.ENCODING_PCM_16BIT; // 音频数据格式：脉冲编码调制（PCM）每个样品16位
 	private AudioRecord audioRecord;
@@ -595,7 +595,7 @@ public class MainActivityService extends Service {
 			public void run() {
 				start_scan();
 			}
-		});
+		},"PlayAudio");
 		PlayAudioThread.start();
 	}
 	
