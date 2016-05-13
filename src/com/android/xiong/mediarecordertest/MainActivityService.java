@@ -417,8 +417,7 @@ public class MainActivityService extends Service {
 	int read = 0;
 	private void writeAudioDataToFile() throws IOException {
 		byte data[] = new byte[recBufSize];//new byte[length];//
-		//int read = 0;
-		//byte [] buffer = new byte[length];
+
 		String filename = getTempFilename();
 		FileOutputStream os = null;
 		try {
@@ -428,20 +427,6 @@ public class MainActivityService extends Service {
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
-//		if (SaveShardMessage.reversePolarity <= 0) {
-//			MyNative.audioInterface(44100, 0, 0);
-//			Log.i("启动录音0000",
-//					reversePolarity
-//							+ "<<"
-//							+ SaveShardMessage.reversePolarity);
-//		} else {
-//			MyNative.audioInterface(44100, 0,
-//					SaveShardMessage.reversePolarity);
-//			Log.i("启动录音1111",
-//					reversePolarity
-//							+ "<<"
-//							+ SaveShardMessage.reversePolarity);
-//		}
 		
 		if (SaveShardMessage.reversePolarity >= 0)
 			MyNative.audioInterface(44100, 0, SaveShardMessage.reversePolarity);
@@ -459,12 +444,7 @@ public class MainActivityService extends Service {
 					e.printStackTrace();
 				}
 			}
-//			try {
-//				Thread.sleep(500);
-//			} catch (InterruptedException e) {
-//				// TODO 自动生成的 catch 块
-//				e.printStackTrace();
-//			}
+
 		}
 		
 		try {
@@ -534,10 +514,10 @@ public class MainActivityService extends Service {
     }
 	
 	public int ACTION_STATE_DATA_Parms = -1;
-	private static int frequency = 8000;
+	private static int frequency = 44100;
 	private static int channelConfiguration = AudioFormat.CHANNEL_IN_MONO;// 单声道
 	private static int EncodingBitRate = AudioFormat.ENCODING_PCM_16BIT; // 音频数据格式：脉冲编码调制（PCM）每个样品16位
-	private AudioRecord audioRecord;
+	private AudioRecord audioRecord = null;
 	private int recBufSize = 0;
 	private Thread recordingThread = null;
 	private boolean isRecording = false;
@@ -882,9 +862,9 @@ public class MainActivityService extends Service {
 				sendBroadCast(ACTION_MIC_SOUND_CHECK, 0);
 				Toast.makeText(MainActivityService.this, "手机MIC检测结果成功", Toast.LENGTH_SHORT).show();
 				audioCurrentVolumn = i;
-				//saveShardMessage.Sharedvolume(i);
-				//saveShardMessage.SharedreversePolarity(reversePolarity);
-				//saveShardMessage.Sharedchange_track_flag(true);
+				saveShardMessage.Sharedvolume(i);
+				saveShardMessage.SharedreversePolarity(reversePolarity);
+				saveShardMessage.Sharedchange_track_flag(true);
 				break;
 			}
 		}
@@ -905,18 +885,18 @@ public class MainActivityService extends Service {
 					Toast.makeText(MainActivityService.this, "手机MIC检测结果成功", Toast.LENGTH_SHORT).show();
 					MyNative.audioInterface(44100, 0, reversePolarity);
 					audioCurrentVolumn = j;
-					//saveShardMessage.Sharedvolume(j);
-					//saveShardMessage.SharedreversePolarity(reversePolarity);
-					//saveShardMessage.Sharedchange_track_flag(false);
+					saveShardMessage.Sharedvolume(j);
+					saveShardMessage.SharedreversePolarity(reversePolarity);
+					saveShardMessage.Sharedchange_track_flag(false);
 					break;
 				}
 			}
 			if (adaptation_flag) {
 				am.setStreamVolume(AudioTrack_Manager, audioMaxVolumn,
 						AudioManager.FLAG_PLAY_SOUND);
-				//saveShardMessage.Sharedchange_track_flag(true);
-				//saveShardMessage
-				//		.SharedreversePolarity(SaveShardMessage.reversePolarity);
+				saveShardMessage.Sharedchange_track_flag(true);
+				saveShardMessage
+						.SharedreversePolarity(SaveShardMessage.reversePolarity);
 				sendBroadCast(ACTION_MIC_SOUND_CHECK, 1);
 				Toast.makeText(MainActivityService.this, "手机MIC检测结果失败", Toast.LENGTH_SHORT).show();
 			}

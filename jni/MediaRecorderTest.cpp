@@ -36,5 +36,5 @@ JNIEXPORT jint JNICALL Java_com_android_xiong_mediarecordertest_MyNative_audioIn
 		audioInterface_reversePolarity(0);
 	else
 		audioInterface_reversePolarity(1);
-	return 0;
+	return 1;
 }
