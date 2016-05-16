@@ -13,7 +13,6 @@ import com.staticmessage.data.StaticByteMessageData2;
 import com.staticmessage.data.StaticByteReverseData;
 import com.staticmessage.data.StaticByteReverseData2;
 
-import android.R.integer;
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
@@ -29,10 +28,8 @@ import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
-import android.os.Process;
 import android.os.Environment;
 import android.os.Handler;
-import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Message;
 import android.util.Log;
